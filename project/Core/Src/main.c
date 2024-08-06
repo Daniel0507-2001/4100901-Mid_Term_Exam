@@ -1,9 +1,9 @@
 /* USER CODE BEGIN Header */
 /**
-  **************************
+  **********
   * @file           : main.c
   * @brief          : Main program body
-  **************************
+  **********
   * @attention
   *
   * Copyright (c) 2024 STMicroelectronics.
@@ -13,7 +13,7 @@
   * in the root directory of this software component.
   * If no LICENSE file comes with this software, it is provided AS-IS.
   *
-  **************************
+  **********
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
@@ -46,8 +46,11 @@ UART_HandleTypeDef huart2;
 uint8_t left_pressed = 0;
 uint8_t right_pressed = 0;
 
+uint8_t left_press_count = 0;
+uint32_t last_left_press_time = 0;
+
 uint8_t right_press_count = 0;
-uint32_t last_press_time = 0;
+uint32_t last_right_press_time = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,19 +65,30 @@ static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     if (GPIO_Pin == BUTTON_LEFT_Pin) {
+        uint32_t current_time = HAL_GetTick();
+
+        // Check if the last left button press was within 500ms
+        if (current_time - last_left_press_time < 500) {
+            left_press_count++;
+        } else {
+            left_press_count = 1;  // Reset count if too much time has passed
+        }
+
+        last_left_press_time = current_time;
         left_pressed = 1;
         HAL_UART_Transmit(&huart2, (uint8_t *)"left_active\r\n", 13, 10);
+
     } else if (GPIO_Pin == BUTTON_RIGHT_Pin) {
         uint32_t current_time = HAL_GetTick();
 
-        // Check if the last press was within 500ms
-        if (current_time - last_press_time < 500) {
+        // Check if the last right button press was within 500ms
+        if (current_time - last_right_press_time < 500) {
             right_press_count++;
         } else {
             right_press_count = 1;  // Reset count if too much time has passed
         }
 
-        last_press_time = current_time;
+        last_right_press_time = current_time;
         right_pressed = 1;
         HAL_UART_Transmit(&huart2, (uint8_t *)"right_active\r\n", 14, 10);
     }
@@ -118,25 +132,35 @@ int main(void) {
   /* USER CODE BEGIN WHILE */
   while (1) {
       if (left_pressed != 0) {
-          left_pressed = 0;  // Resetea el estado del botón al inicio del parpadeo
-          for (uint8_t i = 0; i < 6; i++) {
-              HAL_GPIO_TogglePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin);
-              HAL_Delay(250);
+          left_pressed = 0;  // Reset left button state at the start of the blink sequence
+
+          if (left_press_count >= 2) {
+              // Infinite blink for left LED
+              while (1) {
+                  HAL_GPIO_TogglePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin);
+                  HAL_Delay(250);
+              }
+          } else {
+              // Blink left LED 3 times
+              for (uint8_t i = 0; i < 6; i++) {
+                  HAL_GPIO_TogglePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin);
+                  HAL_Delay(250);
+              }
+              HAL_GPIO_WritePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin, 1);
           }
-          HAL_GPIO_WritePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin, 1);
       }
 
       if (right_pressed != 0) {
-          right_pressed = 0;  // Resetea el estado del botón al inicio del parpadeo
+          right_pressed = 0;  // Reset right button state at the start of the blink sequence
 
           if (right_press_count >= 2) {
-              // Infinite blink
+              // Infinite blink for right LED
               while (1) {
                   HAL_GPIO_TogglePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin);
                   HAL_Delay(250);
               }
           } else {
-              // Blink 3 times
+              // Blink right LED 3 times
               for (uint8_t i = 0; i < 6; i++) {
                   HAL_GPIO_TogglePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin);
                   HAL_Delay(250);

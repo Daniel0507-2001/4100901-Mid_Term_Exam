@@ -1,9 +1,9 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
+  **************************
   * @file           : main.c
   * @brief          : Main program body
-  ******************************************************************************
+  **************************
   * @attention
   *
   * Copyright (c) 2024 STMicroelectronics.
@@ -13,7 +13,7 @@
   * in the root directory of this software component.
   * If no LICENSE file comes with this software, it is provided AS-IS.
   *
-  ******************************************************************************
+  **************************
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
@@ -43,6 +43,8 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+uint8_t left_pressed = 0;
+uint8_t right_pressed = 0;
 
 /* USER CODE END PV */
 
@@ -56,6 +58,19 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+
+	if (GPIO_Pin == BUTTON_LEFT_Pin) {
+	        left_pressed = 1;
+	        HAL_UART_Transmit(&huart2, (uint8_t *)"left_active\r\n", 13, 10);
+	    } else if (GPIO_Pin == BUTTON_RIGHT_Pin) {
+	        right_pressed = 1;
+	        HAL_UART_Transmit(&huart2, (uint8_t *)"right_active\r\n", 14, 10);
+	    }
+
+
+
+}
 
 /* USER CODE END 0 */
 
@@ -96,11 +111,33 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
-  }
-  /* USER CODE END 3 */
+  	  if(left_pressed!=0){
+
+  		  for(uint8_t i = 0; i<6 ; i++){
+  			  HAL_GPIO_TogglePin(LED_LEFT_GPIO_Port,LED_LEFT_Pin);
+  			  HAL_Delay(250);
+
+  		  }
+  		  HAL_GPIO_WritePin(LED_LEFT_GPIO_Port,LED_LEFT_Pin,1);
+  		  left_pressed = 0;
+
+
+  	  }
+  	  if(right_pressed!=0){
+
+  		  for(uint8_t i = 0; i<6 ; i++){
+  			  HAL_GPIO_TogglePin(LED_RIGHT_GPIO_Port,LED_RIGHT_Pin);
+  			  HAL_Delay(250);
+
+  		  }
+  		  HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port,LED_RIGHT_Pin,1);
+  		  right_pressed = 0;
+
+
+  	  }
+    }
+
 }
 
 /**
@@ -122,16 +159,11 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 10;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
-  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
-  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+  RCC_OscInitStruct.MSICalibrationValue = 0;
+  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -141,12 +173,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
@@ -203,30 +235,30 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(RIGHT_LED_GPIO_Port, RIGHT_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LEFT_LED_GPIO_Port, LEFT_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, GPIO_PIN_SET);
 
-  /*Configure GPIO pins : S1_Pin S2_Pin */
-  GPIO_InitStruct.Pin = S1_Pin|S2_Pin;
+  /*Configure GPIO pins : BUTTON_LEFT_Pin BUTTON_RIGHT_Pin */
+  GPIO_InitStruct.Pin = BUTTON_LEFT_Pin|BUTTON_RIGHT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : RIGHT_LED_Pin */
-  GPIO_InitStruct.Pin = RIGHT_LED_Pin;
+  /*Configure GPIO pin : LED_LEFT_Pin */
+  GPIO_InitStruct.Pin = LED_LEFT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(RIGHT_LED_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(LED_LEFT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LEFT_LED_Pin */
-  GPIO_InitStruct.Pin = LEFT_LED_Pin;
+  /*Configure GPIO pin : LED_RIGHT_Pin */
+  GPIO_InitStruct.Pin = LED_RIGHT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LEFT_LED_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(LED_RIGHT_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);

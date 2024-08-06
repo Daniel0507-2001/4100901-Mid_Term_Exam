@@ -46,6 +46,11 @@ UART_HandleTypeDef huart2;
 uint8_t left_pressed = 0;
 uint8_t right_pressed = 0;
 
+uint8_t left_press_count = 0;
+uint32_t last_left_press_time = 0;
+
+uint8_t right_press_count = 0;
+uint32_t last_right_press_time = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,18 +63,35 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+    if (GPIO_Pin == BUTTON_LEFT_Pin) {
+        uint32_t current_time = HAL_GetTick();
 
-	if (GPIO_Pin == BUTTON_LEFT_Pin) {
-	        left_pressed = 1;
-	        HAL_UART_Transmit(&huart2, (uint8_t *)"left_active\r\n", 13, 10);
-	    } else if (GPIO_Pin == BUTTON_RIGHT_Pin) {
-	        right_pressed = 1;
-	        HAL_UART_Transmit(&huart2, (uint8_t *)"right_active\r\n", 14, 10);
-	    }
+        // Check if the last left button press was within 500ms
+        if (current_time - last_left_press_time < 500) {
+            left_press_count++;
+        } else {
+            left_press_count = 1;  // Reset count if too much time has passed
+        }
 
+        last_left_press_time = current_time;
+        left_pressed = 1;
+        HAL_UART_Transmit(&huart2, (uint8_t *)"left_active\r\n", 13, 10);
 
+    } else if (GPIO_Pin == BUTTON_RIGHT_Pin) {
+        uint32_t current_time = HAL_GetTick();
 
+        // Check if the last right button press was within 500ms
+        if (current_time - last_right_press_time < 500) {
+            right_press_count++;
+        } else {
+            right_press_count = 1;  // Reset count if too much time has passed
+        }
+
+        last_right_press_time = current_time;
+        right_pressed = 1;
+        HAL_UART_Transmit(&huart2, (uint8_t *)"right_active\r\n", 14, 10);
+    }
 }
 
 /* USER CODE END 0 */
@@ -78,8 +100,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
   * @brief  The application entry point.
   * @retval int
   */
-int main(void)
-{
+int main(void) {
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -109,50 +130,62 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+  while (1) {
+      if (left_pressed != 0) {
+          left_pressed = 0;  // Reset left button state at the start of the blink sequence
 
-  	  if(left_pressed!=0){
+          if (left_press_count >= 2) {
+              // Infinite blink for left LED
+              while (1) {
+                  HAL_GPIO_TogglePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin);
+                  HAL_Delay(250);
+              }
+          } else {
+              // Blink left LED 3 times
+              for (uint8_t i = 0; i < 6; i++) {
+                  HAL_GPIO_TogglePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin);
+                  HAL_Delay(250);
+              }
+              HAL_GPIO_WritePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin, 1);
+          }
+      }
 
-  		  for(uint8_t i = 0; i<6 ; i++){
-  			  HAL_GPIO_TogglePin(LED_LEFT_GPIO_Port,LED_LEFT_Pin);
-  			  HAL_Delay(250);
+      if (right_pressed != 0) {
+          right_pressed = 0;  // Reset right button state at the start of the blink sequence
 
-  		  }
-  		  HAL_GPIO_WritePin(LED_LEFT_GPIO_Port,LED_LEFT_Pin,1);
-  		  left_pressed = 0;
+          if (right_press_count >= 2) {
+              // Infinite blink for right LED
+              while (1) {
+                  HAL_GPIO_TogglePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin);
+                  HAL_Delay(250);
+              }
+          } else {
+              // Blink right LED 3 times
+              for (uint8_t i = 0; i < 6; i++) {
+                  HAL_GPIO_TogglePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin);
+                  HAL_Delay(250);
+              }
+              HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, 1);
+          }
+      }
+    /* USER CODE END WHILE */
 
-
-  	  }
-  	  if(right_pressed!=0){
-
-  		  for(uint8_t i = 0; i<6 ; i++){
-  			  HAL_GPIO_TogglePin(LED_RIGHT_GPIO_Port,LED_RIGHT_Pin);
-  			  HAL_Delay(250);
-
-  		  }
-  		  HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port,LED_RIGHT_Pin,1);
-  		  right_pressed = 0;
-
-
-  	  }
-    }
-
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
 }
 
 /**
   * @brief System Clock Configuration
   * @retval None
   */
-void SystemClock_Config(void)
-{
+void SystemClock_Config(void) {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
   /** Configure the main internal regulator output voltage
   */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
-  {
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK) {
     Error_Handler();
   }
 
@@ -164,8 +197,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.MSICalibrationValue = 0;
   RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
     Error_Handler();
   }
 
@@ -178,8 +210,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
-  {
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK) {
     Error_Handler();
   }
 }
@@ -189,8 +220,7 @@ void SystemClock_Config(void)
   * @param None
   * @retval None
   */
-static void MX_USART2_UART_Init(void)
-{
+static void MX_USART2_UART_Init(void) {
 
   /* USER CODE BEGIN USART2_Init 0 */
 
@@ -209,14 +239,12 @@ static void MX_USART2_UART_Init(void)
   huart2.Init.OverSampling = UART_OVERSAMPLING_16;
   huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
+  if (HAL_UART_Init(&huart2) != HAL_OK) {
     Error_Handler();
   }
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
-
 }
 
 /**
@@ -224,8 +252,7 @@ static void MX_USART2_UART_Init(void)
   * @param None
   * @retval None
   */
-static void MX_GPIO_Init(void)
-{
+static void MX_GPIO_Init(void) {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 /* USER CODE BEGIN MX_GPIO_Init_1 */
 /* USER CODE END MX_GPIO_Init_1 */
@@ -279,13 +306,11 @@ static void MX_GPIO_Init(void)
   * @brief  This function is executed in case of error occurrence.
   * @retval None
   */
-void Error_Handler(void)
-{
+void Error_Handler(void) {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
-  while (1)
-  {
+  while (1) {
   }
   /* USER CODE END Error_Handler_Debug */
 }
@@ -298,8 +323,7 @@ void Error_Handler(void)
   * @param  line: assert_param error line source number
   * @retval None
   */
-void assert_failed(uint8_t *file, uint32_t line)
-{
+void assert_failed(uint8_t *file, uint32_t line) {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
